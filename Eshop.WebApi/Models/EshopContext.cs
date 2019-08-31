@@ -122,8 +122,6 @@ namespace Eshop.WebApi.Models
 
             modelBuilder.Entity<Shops>(entity =>
             {
-                entity.Property(e => e.Id).ValueGeneratedNever();
-
                 entity.Property(e => e.Description).IsRequired();
 
                 entity.Property(e => e.Name).IsRequired();
