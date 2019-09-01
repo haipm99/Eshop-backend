@@ -9,7 +9,9 @@ using Eshop.WebApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using Microsoft.AspNetCore.Identity;
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace Eshop.WebApi.Controllers
@@ -29,11 +31,30 @@ namespace Eshop.WebApi.Controllers
         [HttpPost("")]
         public IActionResult Login(LoginView login)
         {
-            var user = _context.AppUsers.FirstOrDefault(u => u.Username == login.username && u.Password == login.password);
+
+            var user = _context.AppUsers.FirstOrDefault(u => u.Username == login.username);
 
             if(user == null)
             {
-                return Unauthorized("Username or Password have been wrong !");
+                return Unauthorized("Username or Password have been wrong");
+            }
+            string saltSave = user.Password.Split("|")[1];
+            string password2 = user.Password.Split("|")[0];
+
+            string []byteArrString = saltSave.Split(" ");
+            byteArrString = byteArrString.Take(byteArrString.Count() - 1).ToArray();
+            var salt = Array.ConvertAll(byteArrString, Byte.Parse); ;
+            
+            string hashed = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                   password: login.password,
+                   salt: salt,
+                   prf: KeyDerivationPrf.HMACSHA1,
+                   iterationCount: 10000,
+                   numBytesRequested: 256 / 8));
+            
+            if(password2 != hashed)
+            {
+                return Unauthorized(salt);
             }
 
             var roleId = _context.UserRoles.FirstOrDefault(r => r.UserId == user.Id);
@@ -106,9 +127,29 @@ namespace Eshop.WebApi.Controllers
 
             if(user.Count == 0)
             {
+                byte[] salt = new byte[128 / 8];
+                using (var rng = RandomNumberGenerator.Create())
+                {
+                    rng.GetBytes(salt);
+                }
+                string saltSave = "";
+                for(int i = 0; i < salt.Length; i++)
+                {
+                    saltSave = saltSave + salt[i] + " ";
+                }
+                //Console.WriteLine($"Salt: {Convert.ToBase64String(salt)}");
+
+                // derive a 256-bit subkey (use HMACSHA1 with 10,000 iterations)
+                string hashed = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                    password: acc.Password,
+                    salt: salt,
+                    prf: KeyDerivationPrf.HMACSHA1,
+                    iterationCount: 10000,
+                    numBytesRequested: 256 / 8));
+                acc.Password = hashed+"|"+ saltSave;
                 _context.AppUsers.Add(acc);
                 _context.SaveChanges();
-                return Ok(acc);
+                return Ok(salt);
             }
 
             return BadRequest("user have been exited");
