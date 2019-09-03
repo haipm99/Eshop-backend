@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Eshop.WebApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using Newtonsoft.Json;
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace Eshop.WebApi.Controllers
@@ -27,7 +27,7 @@ namespace Eshop.WebApi.Controllers
         public IActionResult CreateShop(Shops shop)
         {
             var result = _context.Shops.FirstOrDefault(s => s.Id == shop.Id);
-            if(result != null)
+            if (result != null)
             {
                 return BadRequest("Shop have exist");
             }
@@ -57,7 +57,7 @@ namespace Eshop.WebApi.Controllers
 
             return Ok();
         }
-        
+
         //url : api/owner/getDetailProduct
         //desc : get detail of 1 product
         [HttpGet("detailProduct")]
@@ -65,7 +65,7 @@ namespace Eshop.WebApi.Controllers
         public IActionResult GetDetailProduct(int Id)
         {
             var pro = _context.Products.Where(p => p.Id == Id);
-            if(pro == null)
+            if (pro == null)
             {
                 return BadRequest("Not Found Product.");
             }
@@ -80,7 +80,7 @@ namespace Eshop.WebApi.Controllers
         public IActionResult DeleteProduct(int Id)
         {
             var pro = _context.Products.FirstOrDefault(p => p.Id == Id);
-            if(pro != null)
+            if (pro != null)
             {
                 try
                 {
@@ -88,12 +88,47 @@ namespace Eshop.WebApi.Controllers
                     _context.SaveChanges();
                     return Ok("Delete Successfull");
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     throw;
                 }
             }
             return BadRequest("Delete Failed");
         }
+
+
+        //url : api/owner/getShop
+        //desc: get all shop of owner
+        [HttpGet("getShop/{id}")]
+        [Authorize(Roles = "Shop owner")]
+        public IActionResult GetShopOfOwner(int id)
+        {
+           var shops = _context.Shops.Where(s => s.UserId == id).ToList();
+            //var mylist = new Dictionary<string, Array>();
+            List<object> mylist = new List<object>();
+            foreach(Shops s in shops)
+            {
+                var newShop = new
+                {
+                    id = s.Id,
+                    name = s.Name,
+                    desc = s.Description,
+                    status = s.Status,
+                    userId = s.UserId,
+                    phone = s.Phone
+                };
+                mylist.Add(newShop);
+            }
+
+            if (shops.Count > 0)
+            {
+                return Ok(JsonConvert.SerializeObject(mylist));
+            }
+            else
+            {
+                return Ok("empty shop");
+            }
+        }
+
     }
 }
